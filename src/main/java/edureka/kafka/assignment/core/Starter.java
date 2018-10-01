@@ -16,6 +16,8 @@ import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 
+import com.google.gson.Gson;
+
 public class Starter {
 
 	public static volatile long number = 10000;
@@ -31,7 +33,7 @@ public class Starter {
 
 		// instantiate producer
 		InputStream propsFile = Starter.class.getResourceAsStream("producer.props");
-		Producer<String, Data> producer;
+		Producer<String, String> producer;
 		Properties props = null;
 		try {
 			props = loadProperties(propsFile);
@@ -39,7 +41,7 @@ public class Starter {
 			System.out.println("Producer properties read exception!");
 			e.printStackTrace();
 		}
-		producer = new KafkaProducer<String, Data>(props);
+		producer = new KafkaProducer<String, String>(props);
 
 		// thread inits
 		ExecutorService executor = new ThreadPoolExecutor(5, 10, 0L, TimeUnit.MILLISECONDS,
@@ -50,6 +52,7 @@ public class Starter {
 			tasks.add(getProducerTask(producer, props.getProperty("topic")));
 
 		}
+		Long start = System.currentTimeMillis();
 		try {
 			executor.invokeAll(tasks);
 		} catch (InterruptedException e) {
@@ -63,7 +66,8 @@ public class Starter {
 		} catch (InterruptedException e) {
 			executor.shutdownNow();
 		}
-		
+		start = System.currentTimeMillis() - start;
+		System.out.println("time taken for producing : " + start + " ms");
 		System.out.println("shutting down program execution");
 
 	}
@@ -74,7 +78,7 @@ public class Starter {
 		return props;
 	}
 
-	private Callable<String> getProducerTask(Producer<String, Data> producer, String topic) {
+	private Callable<String> getProducerTask(Producer<String, String> producer, String topic) {
 
 		return new Callable<String>() {
 
@@ -83,7 +87,9 @@ public class Starter {
 
 				while (Starter.number > 0) {
 					Starter.number--;
-					ProducerRecord<String, Data> record = new ProducerRecord<String, Data>(topic, new Data());
+					Gson gson = new Gson();
+					String data = gson.toJson(new Data());
+					ProducerRecord<String, String> record = new ProducerRecord<String, String>(topic, data);
 					RecordMetadata metadata = producer.send(record).get();
 					System.out.println(metadata.topic());
 				}
